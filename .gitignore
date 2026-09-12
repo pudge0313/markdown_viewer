@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-*/
+dist2/
+dist-final/
+
+# Local analysis artifacts (screenshots, crops, comparison images)
+_analysis/
+
+# Logs & misc
+*.log
+.DS_Store
+
+# Security-scan hook local state
+.mimosa/
+**/.mimosa/

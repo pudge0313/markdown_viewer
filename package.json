@@ -1,0 +1,67 @@
+{
+  "name": "markdown-viewer",
+  "productName": "Markdown 查看器",
+  "version": "1.1.0",
+  "description": "本地 Markdown 文档查看器",
+  "main": "src/main.js",
+  "author": "pudge0313",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "shot": "electron tools/shot.js",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "highlight.js": "^11.10.0",
+    "marked": "^14.1.0"
+  },
+  "build": {
+    "appId": "com.pudge0313.markdownviewer",
+    "productName": "Markdown 查看器",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Markdown 查看器",
+      "artifactName": "MarkdownViewer-Setup-${version}.${ext}"
+    },
+    "fileAssociations": [
+      {
+        "ext": "md",
+        "name": "Markdown 文档",
+        "description": "Markdown 文档",
+        "role": "Viewer"
+      },
+      {
+        "ext": "markdown",
+        "name": "Markdown 文档",
+        "description": "Markdown 文档",
+        "role": "Viewer"
+      }
+    ]
+  }
+}
