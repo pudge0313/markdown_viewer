@@ -2,7 +2,7 @@
 
 一款 Windows 本地 **只读** Markdown 阅读器：双击 `.md` 就能舒服地读完，不修改、不上传、不联网。
 
-![Electron](https://img.shields.io/badge/Electron-33-47848f) ![Version](https://img.shields.io/badge/version-1.2.0-blue) ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey) ![License](https://img.shields.io/badge/license-MIT-green)
+![Electron](https://img.shields.io/badge/Electron-33-47848f) ![Version](https://img.shields.io/badge/version-1.2.1-blue) ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## 下载安装
 
@@ -68,13 +68,13 @@ npm run dist          # 打包，输出到 dist/
 npm run verify:dist   # 启动打包后的 exe，用调试协议验证真实渲染结果
 ```
 
-### 构建产物（v1.2.0）
+### 构建产物（v1.2.1）
 
 | 文件 | 大小 | 说明 |
 |---|---|---|
-| `dist/MarkdownViewer-Setup-1.2.0.exe` | 82 MB | NSIS 安装包，一键安装，注册 `.md` / `.markdown` / `.mdx` 打开方式 |
-| `dist/MarkdownViewer-Portable-1.2.0.exe` | 82 MB | 便携版，免安装，双击即用 |
-| `dist/MarkdownViewer-Setup-1.2.0.exe.blockmap` | 123 KB | 增量更新用（当前未启用自动更新） |
+| `dist/MarkdownViewer-Setup-1.2.1.exe` | 82 MB | NSIS 安装包，一键安装，注册 `.md` / `.markdown` / `.mdx` 打开方式 |
+| `dist/MarkdownViewer-Portable-1.2.1.exe` | 82 MB | 便携版，免安装，双击即用 |
+| `dist/MarkdownViewer-Setup-1.2.1.exe.blockmap` | 123 KB | 增量更新用（当前未启用自动更新） |
 
 > **未做代码签名**：构建日志里的 `signing is skipped` 就是它。没有证书的 exe 首次运行会被 SmartScreen 拦一下
 > （「Windows 已保护你的电脑」→ 更多信息 → 仍要运行）。要消除该提示只能购买代码签名证书，属于外部成本。
@@ -87,7 +87,7 @@ npm run verify:dist   # 启动打包后的 exe，用调试协议验证真实渲�
 
 ```bash
 npm run check       # 语法自检（node --check）+ 渲染管线回归测试（37 项）
-npm run e2e         # 真实 Electron 交互回归（48 项：标签/链接/查找/大纲/复制/设置/监听/XSS/PDF）
+npm run e2e         # 真实 Electron 交互回归（50 项：标签/链接/查找/大纲/复制/设置/监听/XSS/PDF/标题栏避让）
 npm run verify:dist # 打包产物自检（10 项：依赖是否真打进 asar + 公式/图表/清洗可用）
 npm run shot        # 渲染指定文件并截图，用于肉眼验收
 ```

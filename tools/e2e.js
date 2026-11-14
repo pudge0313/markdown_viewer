@@ -285,6 +285,17 @@ app.whenReady().then(async () => {
     check('可生成 PDF 且内容非空', false, String(err && err.message));
   }
 
+  /* ---------- 18. 标题栏避让原生窗口按钮 ---------- */
+  // 曾经的 bug：padding-right 写死 115.2px，在 125% 缩放下原生按钮区是 136px，
+  // 最后一个「更多」按钮被压在原生关闭按钮底下，用户看不到也点不到。
+  r = await js(`(() => {
+    const pad = parseFloat(getComputedStyle(document.querySelector('#titlebar')).paddingRight);
+    const more = document.querySelector('#btn-more').getBoundingClientRect();
+    return { pad, moreRight: Math.round(more.right), inner: innerWidth, visible: more.width > 0 };
+  })()`);
+  check('标题栏为原生窗口按钮预留足够宽度（≥136px）', r.pad >= 136, r.pad);
+  check('最后一个工具栏按钮未被预留区挤掉', r.visible && r.moreRight <= r.inner - r.pad + 1, r);
+
   /* ---------- 17. 控制台无异常 ---------- */
   check('渲染进程无未捕获错误', errors.length === 0, errors.slice(0, 5));
 

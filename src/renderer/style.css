@@ -117,8 +117,13 @@ body {
 .tb-btn:hover { background: rgba(255, 255, 255, 0.09); }
 .tb-btn.active { background: rgba(255, 255, 255, 0.12); }
 
-/* 右侧按钮避开原生最小化/最大化/关闭按钮（约 115 CSS px），推到最右 */
-#titlebar { padding-right: 115.2px; }
+/* 右侧按钮避开原生最小化/最大化/关闭按钮。
+   宽度不能写死：Windows 10/11 与不同 DPI 下按钮区宽度不同（实测 125% 缩放下是 136 CSS px），
+   写死 115.2px 会把最后一个「更多」按钮压到原生按钮底下而看不见。
+   titlebar-area-* 是 Window Controls Overlay 提供的环境变量，拿不到时退回 144px。 */
+#titlebar {
+  padding-right: max(144px, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 8px));
+}
 #btn-open { margin-left: auto; }
 
 /* ================= 布局 ================= */
@@ -643,7 +648,6 @@ body.light #mdv-toast {
 #titlebar {
   height: 46px;
   flex: 0 0 46px;
-  padding-right: 115.2px;
   align-items: stretch;
 }
 

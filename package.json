@@ -1,7 +1,7 @@
 {
   "name": "markdown-viewer",
   "productName": "Markdown 查看器",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "本地只读 Markdown 查看器（标签页 / 大纲 / 查找 / 公式 / 图表 / 导出）",
   "main": "src/main.js",
   "author": "pudge0313",

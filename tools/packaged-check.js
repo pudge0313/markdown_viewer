@@ -69,7 +69,11 @@ function evaluate(wsUrl, expression) {
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.NODE_OPTIONS;
 
-  const child = spawn(EXE, [FILE, `--remote-debugging-port=${PORT}`], { env, stdio: 'ignore', detached: false });
+  // 每次用全新的配置目录：否则会恢复上次会话的标签，断言就不稳定了
+  const profile = path.join(ROOT, '_analysis', 'pkgcheck-profile');
+  fs.rmSync(profile, { recursive: true, force: true });
+
+  const child = spawn(EXE, [FILE, `--user-data-dir=${profile}`, `--remote-debugging-port=${PORT}`], { env, stdio: 'ignore', detached: false });
   const kill = () => {
     try { spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ }
   };
