@@ -62,17 +62,34 @@
 ## 开发
 
 ```bash
-npm install      # 安装依赖（Electron 33 / marked / highlight.js / KaTeX / mermaid / DOMPurify）
-npm start        # 本地运行（prestart 自动把第三方产物复制到 src/renderer/vendor）
-npm run dist     # 打包 NSIS 安装包 + 便携版（输出到 dist/）
+npm install           # 安装依赖
+npm start             # 本地运行（prestart 自动把第三方产物复制到 src/renderer/vendor）
+npm run dist          # 打包，输出到 dist/
+npm run verify:dist   # 启动打包后的 exe，用调试协议验证真实渲染结果
 ```
+
+### 构建产物（v1.2.0）
+
+| 文件 | 大小 | 说明 |
+|---|---|---|
+| `dist/MarkdownViewer-Setup-1.2.0.exe` | 82 MB | NSIS 安装包，一键安装，注册 `.md` / `.markdown` / `.mdx` 打开方式 |
+| `dist/MarkdownViewer-Portable-1.2.0.exe` | 82 MB | 便携版，免安装，双击即用 |
+| `dist/MarkdownViewer-Setup-1.2.0.exe.blockmap` | 123 KB | 增量更新用（当前未启用自动更新） |
+
+> **未做代码签名**：构建日志里的 `signing is skipped` 就是它。没有证书的 exe 首次运行会被 SmartScreen 拦一下
+> （「Windows 已保护你的电脑」→ 更多信息 → 仍要运行）。要消除该提示只能购买代码签名证书，属于外部成本。
+
+体积说明：Electron 运行时本身约 180 MB，压缩后约 70 MB 已经是下限。其余差异来自 Node 依赖——
+`mermaid`、`DOMPurify` 只在**构建期**用于生成 `src/renderer/vendor/` 里的单文件，所以放在 `devDependencies`，
+不进入 asar；否则光 mermaid 就要多塞 126 MB（安装包会从 82 MB 涨到 115 MB）。
 
 ### 自检
 
 ```bash
-npm run check    # 语法自检（node --check）+ 渲染管线回归测试（37 项）
-npm run e2e      # 真实 Electron 交互回归（46 项：标签/链接/查找/大纲/复制/设置/监听/XSS/PDF）
-npm run shot     # 渲染指定文件并截图，用于肉眼验收
+npm run check       # 语法自检（node --check）+ 渲染管线回归测试（37 项）
+npm run e2e         # 真实 Electron 交互回归（48 项：标签/链接/查找/大纲/复制/设置/监听/XSS/PDF）
+npm run verify:dist # 打包产物自检（10 项：依赖是否真打进 asar + 公式/图表/清洗可用）
+npm run shot        # 渲染指定文件并截图，用于肉眼验收
 ```
 
 `npm run shot` 支持的环境变量：
@@ -122,6 +139,7 @@ markdown_viewer/
 |---|---|
 | 不能编辑 | 只读是产品定位：不改用户文件，就永远弄不坏用户文件 |
 | 无自动更新 | 需要发布源与签名密钥；当前只提供下载链接，不做「点了没反应」的假更新 |
+| 安装包未签名 | 无代码签名证书，SmartScreen 会提示「未知发布者」 |
 | 无大文件虚拟滚动 | 目前用「超过 1.5MB 自动关闭语法高亮」保流畅，真正窗口化渲染风险高于收益 |
 | 不做分屏拖拽 | 对照阅读用「新窗口」或标签页 |
 

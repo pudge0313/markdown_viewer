@@ -16,18 +16,19 @@
     "predist": "node tools/vendor.js",
     "dist": "electron-builder --win",
     "e2e": "node tools/e2e.js",
-    "check": "node tools/lint.js && node tools/smoke.js"
+    "check": "node tools/lint.js && node tools/smoke.js",
+    "verify:dist": "node tools/packaged-check.js"
   },
   "devDependencies": {
+    "dompurify": "^3.4.17",
     "electron": "^33.4.11",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^25.1.8",
+    "mermaid": "^12.3.0"
   },
   "dependencies": {
-    "dompurify": "^3.4.17",
     "highlight.js": "^11.10.0",
     "katex": "^0.19.1",
-    "marked": "^14.1.0",
-    "mermaid": "^12.3.0"
+    "marked": "^14.1.0"
   },
   "build": {
     "appId": "com.pudge0313.markdownviewer",
