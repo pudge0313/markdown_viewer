@@ -17,3 +17,12 @@ _analysis/
 # Security-scan hook local state
 .mimosa/
 **/.mimosa/
+
+# 第三方前端产物（由 npm run vendor / prestart 自动生成）
+src/renderer/vendor/
+
+# 开发期临时文件
+ws_url.txt
+
+# 工作助手项目记忆
+.workbuddy/

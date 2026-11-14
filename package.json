@@ -1,23 +1,33 @@
 {
   "name": "markdown-viewer",
   "productName": "Markdown 查看器",
-  "version": "1.1.0",
-  "description": "本地 Markdown 文档查看器",
+  "version": "1.2.0",
+  "description": "本地只读 Markdown 查看器（标签页 / 大纲 / 查找 / 公式 / 图表 / 导出）",
   "main": "src/main.js",
   "author": "pudge0313",
   "license": "MIT",
   "scripts": {
+    "vendor": "node tools/vendor.js",
+    "prestart": "node tools/vendor.js",
     "start": "electron .",
-    "shot": "electron tools/shot.js",
-    "dist": "electron-builder --win"
+    "shot": "node tools/vendor.js && electron tools/shot.js",
+    "test": "node tools/smoke.js",
+    "lint": "node tools/lint.js",
+    "predist": "node tools/vendor.js",
+    "dist": "electron-builder --win",
+    "e2e": "node tools/e2e.js",
+    "check": "node tools/lint.js && node tools/smoke.js"
   },
   "devDependencies": {
     "electron": "^33.4.11",
     "electron-builder": "^25.1.8"
   },
   "dependencies": {
+    "dompurify": "^3.4.17",
     "highlight.js": "^11.10.0",
-    "marked": "^14.1.0"
+    "katex": "^0.19.1",
+    "marked": "^14.1.0",
+    "mermaid": "^12.3.0"
   },
   "build": {
     "appId": "com.pudge0313.markdownviewer",
@@ -33,6 +43,12 @@
       "target": [
         {
           "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
           "arch": [
             "x64"
           ]
@@ -61,7 +77,16 @@
         "name": "Markdown 文档",
         "description": "Markdown 文档",
         "role": "Viewer"
+      },
+      {
+        "ext": "mdx",
+        "name": "MDX 文档",
+        "description": "MDX 文档",
+        "role": "Viewer"
       }
-    ]
+    ],
+    "portable": {
+      "artifactName": "MarkdownViewer-Portable-${version}.${ext}"
+    }
   }
 }

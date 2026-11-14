@@ -1,65 +1,57 @@
 'use strict';
-const { contextBridge, ipcRenderer, webFrame } = require('electron');
-const { marked } = require('marked');
-const hljs = require('highlight.js');
+const { contextBridge, ipcRenderer, webFrame, webUtils, clipboard } = require('electron');
+const { renderMarkdown } = require('./render-md');
+const { normalizeWinPath, joinAndNormalize } = require('./winpath');
 
-function escapeHtml(s) {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+/** 安全的回调订阅：返回取消函数 */
+function on(channel, cb) {
+  const handler = (_e, payload) => cb(payload);
+  ipcRenderer.on(channel, handler);
+  return () => ipcRenderer.removeListener(channel, handler);
 }
 
-// 代码块：highlight.js 按 VS Code Dark+ 配色着色；未知语言则原样转义
-const renderer = {
-  code({ text, lang }) {
-    let out;
-    let cls = 'hljs';
-    const name = (lang || '').trim().split(/\s+/)[0].toLowerCase();
-    if (name && hljs.getLanguage(name)) {
-      try {
-        out = hljs.highlight(text, { language: name, ignoreIllegals: true }).value;
-        cls += ' language-' + name;
-      } catch {
-        out = escapeHtml(text);
-      }
-    } else {
-      out = escapeHtml(text);
-      if (name) cls += ' language-' + name;
-    }
-    return `<pre><code class="${cls}">${out}\n</code></pre>`;
-  }
-};
-
-marked.use({
-  gfm: true,
-  breaks: true,
-  renderer
-});
-
 contextBridge.exposeInMainWorld('mdv', {
-  // ---- markdown ----
-  renderMarkdown: (text) => marked.parse(text, { async: false }),
-  headingMeta: (html) => null,
+  /* ---------- 路径 ---------- */
+  normalizePath: (p) => normalizeWinPath(p),
+  joinPath: (dir, rel) => joinAndNormalize(dir, rel),
 
-  // ---- files ----
+  /* ---------- markdown ---------- */
+  renderMarkdown: (text, opts) => renderMarkdown(text, opts || {}),
+
+  /* ---------- 文件 ---------- */
   readFile: (p) => ipcRenderer.invoke('mdv:read-file', p),
+  statFile: (p) => ipcRenderer.invoke('mdv:stat-file', p),
   openFileDialog: () => ipcRenderer.invoke('mdv:open-dialog'),
+  openFolderDialog: () => ipcRenderer.invoke('mdv:open-folder'),
   listDir: (p) => ipcRenderer.invoke('mdv:list-dir', p),
   showInFolder: (p) => ipcRenderer.invoke('mdv:show-in-folder', p),
   openExternal: (u) => ipcRenderer.invoke('mdv:open-external', u),
   openPath: (p) => ipcRenderer.invoke('mdv:open-path', p),
+  openInNewWindow: (p) => ipcRenderer.invoke('mdv:new-window', p),
+  pathForFile: (file) => { try { return webUtils.getPathForFile(file); } catch { return ''; } },
 
-  // ---- events ----
-  onOpenFile: (cb) => ipcRenderer.on('mdv:open-file', (_e, p) => cb(p)),
-  onMenu: (cb) => ipcRenderer.on('mdv:menu', (_e, cmd) => cb(cmd)),
-  onZoom: (cb) => ipcRenderer.on('mdv:zoom', (_e, cmd) => cb(cmd)),
+  /* ---------- 外部修改监听 ---------- */
+  watchFile: (p) => ipcRenderer.invoke('mdv:watch-file', p),
+  unwatchFile: () => ipcRenderer.invoke('mdv:unwatch-file'),
+  onFileChanged: (cb) => on('mdv:file-changed', cb),
 
-  // ---- zoom ----
+  /* ---------- 导出 / 打印 ---------- */
+  exportPdf: (name) => ipcRenderer.invoke('mdv:export-pdf', name),
+  printPage: () => ipcRenderer.invoke('mdv:print'),
+
+  /* ---------- 应用信息 / 主题 ---------- */
+  appInfo: () => ipcRenderer.invoke('mdv:app-info'),
+  persistTheme: (t) => ipcRenderer.send('mdv:persist-theme', t),
+
+  /* ---------- 事件 ---------- */
+  onOpenFile: (cb) => on('mdv:open-file', cb),
+  onMenu: (cb) => on('mdv:menu', cb),
+  onSystemTheme: (cb) => on('mdv:system-theme', cb),
+
+  /* ---------- 剪贴板 ---------- */
+  copyText: (text) => { try { clipboard.writeText(String(text)); return true; } catch { return false; } },
+
+  /* ---------- 缩放 ---------- */
   setZoom: (f) => { webFrame.setZoomFactor(f); },
-  getZoom: () => webFrame.getZoomFactor(),
-
-  // ---- theme ----
-  applyTheme: (t) => ipcRenderer.send('mdv:theme', t)
+  getZoom: () => webFrame.getZoomFactor()
 });
