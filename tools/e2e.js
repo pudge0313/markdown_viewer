@@ -83,6 +83,10 @@ app.whenReady().then(async () => {
   check('代码块与复制按钮成对', r.code === 2 && r.copy === 2, r);
   check('表格已包裹滚动容器', r.table === 1, r.table);
   check('公式渲染', r.katex >= 3, r.katex);
+  for (let i = 0; i < 12 && r.mermaid === 0; i++) {
+    await sleep(250);
+    r = Object.assign({}, r, { mermaid: await js(`document.querySelectorAll('.mermaid-block svg').length`) });
+  }
   check('mermaid 渲染成 svg', r.mermaid === 1, r.mermaid);
   check('图片加载', r.img === 1, r.img);
 
@@ -123,11 +127,14 @@ app.whenReady().then(async () => {
 
   /* ---------- 6. 大纲跳转 ---------- */
   r = await js(`(async () => {
-    const before = document.getElementById('content').scrollTop;
+    const c = document.getElementById('content');
+    c.scrollTop = 0;                       // 先回到顶部，避免上次用例已滚到底导致误判
+    await new Promise(r => setTimeout(r, 80));
+    const before = c.scrollTop;
     const items = MDV.outline.items;
     MDV.outline.jumpTo(items[items.length - 1].id);
-    await new Promise(r => setTimeout(r, 200));
-    return { before, after: document.getElementById('content').scrollTop, count: items.length };
+    await new Promise(r => setTimeout(r, 250));
+    return { before, after: c.scrollTop, count: items.length };
   })()`);
   check('点击大纲标题会滚动', r.after > r.before, r);
 
@@ -284,6 +291,128 @@ app.whenReady().then(async () => {
   } catch (err) {
     check('可生成 PDF 且内容非空', false, String(err && err.message));
   }
+
+  /* ---------- 19. 编辑与保存 ---------- */
+  const EDIT_FILE = path.join(DEMO, '..', 'edit-fixture.md');
+  fs.writeFileSync(EDIT_FILE, '# 编辑测试\n\n段落文字\n\n- 列表项\n', 'utf8');
+
+  await js(`MDV.tabs.openPath(${J(EDIT_FILE)})`);
+  await sleep(500);
+
+  r = await js(`(() => {
+    MDV.editor.applyMode('split');
+    const pane = document.querySelector('#editor-pane');
+    const ta = document.querySelector('#editor-input');
+    return {
+      mode: document.body.dataset.mode,
+      visible: !pane.hidden,
+      len: ta.value.length,
+      activeBtn: (document.querySelector('.mode-btn.active') || {}).dataset?.mode || ''
+    };
+  })()`);
+  check('分栏模式：编辑区可见并载入文件内容', r.visible && r.mode === 'split' && r.len > 8, r);
+  check('分栏模式按钮高亮正确', r.activeBtn === 'split', r.activeBtn);
+
+  // 输入 → 脏标记 + 实时预览
+  r = await js(`(async () => {
+    const ta = document.querySelector('#editor-input');
+    ta.focus();
+    ta.setSelectionRange(0, 0);
+    document.execCommand('insertText', false, '新增一行' + String.fromCharCode(10, 10));
+    await new Promise(r => setTimeout(r, 420));
+    return {
+      text: ta.value.slice(0, 8),
+      dirty: MDV.tabs.active().dirty,
+      dot: document.querySelectorAll('.tab-dot').length,
+      saveEnabled: !document.querySelector('#btn-save').disabled,
+      previewHas: document.querySelector('#view').innerText.includes('新增一行')
+    };
+  })()`);
+  check('输入后写入编辑区', r.text.startsWith('新增一行'), r.text);
+  check('输入后出现未保存标记', r.dirty === true && r.dot === 1, r);
+  check('保存按钮在脏状态下可用', r.saveEnabled === true, r.saveEnabled);
+  check('实时预览跟随输入更新', r.previewHas === true, r.previewHas);
+
+  // Ctrl+B 加粗
+  r = await js(`(() => {
+    const ta = document.querySelector('#editor-input');
+    const i = ta.value.indexOf('段落文字');
+    ta.focus();
+    ta.setSelectionRange(i, i + 4);
+    ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', ctrlKey: true, bubbles: true, cancelable: true }));
+    return { out: ta.value, hasBold: ta.value.includes('**段落文字**') };
+  })()`);
+  check('编辑区 Ctrl+B 加粗生效', r.hasBold, r.out.slice(0, 40));
+
+  // 右键菜单
+  r = await js(`(() => {
+    const ta = document.querySelector('#editor-input');
+    ta.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 140, clientY: 220 }));
+    const menu = document.querySelector('#ctx-menu');
+    return {
+      exists: !!menu,
+      items: menu ? menu.querySelectorAll('.cm-item').length : 0,
+      groups: menu ? Array.from(menu.querySelectorAll('.cm-title')).map(n => n.textContent) : [],
+      rect: menu ? { x: Math.round(menu.getBoundingClientRect().left), y: Math.round(menu.getBoundingClientRect().top) } : null
+    };
+  })()`);
+  check('编辑区右键可弹出菜单', r.exists === true, r);
+  check('右键菜单条目齐全（≥20 项）', r.items >= 20, r.items);
+  check('右键菜单含格式/段落/插入分组', ['格式', '段落', '插入'].every(g => r.groups.includes(g)), r.groups);
+
+  r = await js(`(() => {
+    const btns = Array.from(document.querySelectorAll('#ctx-menu .cm-item'));
+    const ital = btns.find(b => b.textContent.includes('斜体'));
+    if (ital) ital.click();
+    const ta = document.querySelector('#editor-input');
+    return { applied: ta.value.includes('*段落文字*'), closed: !document.querySelector('#ctx-menu') };
+  })()`);
+  check('右键菜单「斜体」可用并自动关闭菜单', r.applied && r.closed, r);
+
+  // Tab 缩进
+  r = await js(`(() => {
+    const ta = document.querySelector('#editor-input');
+    const i = ta.value.indexOf('列表项');
+    ta.focus();
+    ta.setSelectionRange(i, i + 3);
+    ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+    const j = ta.value.indexOf('列表项');
+    return { line: ta.value.slice(j - 4, j + 3) };
+  })()`);
+  check('编辑区 Tab 产生缩进', r.line.startsWith('  -'), r.line);
+
+  // 保存到磁盘
+  r = await js(`(async () => {
+    const ok = await MDV.editor.saveActive();
+    return { ok, dirty: MDV.tabs.active().dirty, dot: document.querySelectorAll('.tab-dot').length };
+  })()`);
+  const savedText = fs.readFileSync(EDIT_FILE, 'utf8');
+  check('保存成功并清除未保存标记', r.ok === true && r.dirty === false && r.dot === 0, r);
+  check('磁盘文件确实写入了修改', savedText.includes('新增一行') && savedText.includes('**段落文字**'), savedText.slice(0, 40));
+
+  // 关闭有未保存修改的标签 → 弹确认框
+  await js(`(() => {
+    const ta = document.querySelector('#editor-input');
+    ta.value += String.fromCharCode(10) + '追加内容';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    return 1;
+  })()`);
+  await js(`MDV.tabs.closeActive(); 1`);
+  await sleep(250);
+  r = await js(`({
+    dlg: !!document.querySelector('dialog.mdv-confirm'),
+    buttons: Array.from(document.querySelectorAll('dialog.mdv-confirm button')).map(b => b.textContent),
+    tabs: document.querySelectorAll('.tab').length
+  })`);
+  check('关闭未保存标签时弹出确认框', r.dlg === true && r.buttons.length === 3, r);
+
+  await js(`(() => { const b = Array.from(document.querySelectorAll('dialog.mdv-confirm button')).find(x => x.textContent === '取消'); if (b) b.click(); return 1; })()`);
+  await sleep(200);
+  r = await js(`({ tabs: document.querySelectorAll('.tab').length, dlg: !!document.querySelector('dialog.mdv-confirm') })`);
+  check('确认框选择取消后标签保留', r.dlg === false && r.tabs >= 1, r);
+
+  // 回到预览模式，避免影响后续用例
+  await js(`MDV.editor.applyMode('preview')`);
 
   /* ---------- 18. 标题栏避让原生窗口按钮 ---------- */
   // 曾经的 bug：padding-right 写死 115.2px，在 125% 缩放下原生按钮区是 136px，

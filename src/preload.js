@@ -2,6 +2,7 @@
 const { contextBridge, ipcRenderer, webFrame, webUtils, clipboard } = require('electron');
 const { renderMarkdown } = require('./render-md');
 const { normalizeWinPath, joinAndNormalize } = require('./winpath');
+const mdEdit = require('./md-edit');
 
 /** 安全的回调订阅：返回取消函数 */
 function on(channel, cb) {
@@ -9,6 +10,8 @@ function on(channel, cb) {
   ipcRenderer.on(channel, handler);
   return () => ipcRenderer.removeListener(channel, handler);
 }
+
+contextBridge.exposeInMainWorld('MDVEdit', mdEdit);
 
 contextBridge.exposeInMainWorld('mdv', {
   /* ---------- 路径 ---------- */
@@ -36,6 +39,7 @@ contextBridge.exposeInMainWorld('mdv', {
   onFileChanged: (cb) => on('mdv:file-changed', cb),
 
   /* ---------- 导出 / 打印 ---------- */
+  saveFile: (p, text, expectedMtime) => ipcRenderer.invoke('mdv:save-file', p, text, expectedMtime),
   exportPdf: (name) => ipcRenderer.invoke('mdv:export-pdf', name),
   printPage: () => ipcRenderer.invoke('mdv:print'),
 
@@ -50,6 +54,7 @@ contextBridge.exposeInMainWorld('mdv', {
 
   /* ---------- 剪贴板 ---------- */
   copyText: (text) => { try { clipboard.writeText(String(text)); return true; } catch { return false; } },
+  readText: () => { try { return clipboard.readText(); } catch { return ''; } },
 
   /* ---------- 缩放 ---------- */
   setZoom: (f) => { webFrame.setZoomFactor(f); },

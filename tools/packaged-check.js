@@ -102,6 +102,10 @@ function evaluate(wsUrl, expression) {
       mermaidSvg: document.querySelectorAll('.mermaid-block svg').length,
       mermaidErr: document.querySelectorAll('.mermaid-error').length,
       purified: typeof window.DOMPurify !== 'undefined',
+      editor: !!document.querySelector('#editor-input'),
+      modeBtns: document.querySelectorAll('.mode-btn').length,
+      saveBtn: !!document.querySelector('#btn-save'),
+      editApi: typeof window.MDVEdit === 'object' && typeof window.MDVEdit.bold === 'function',
       textLen: (v.innerText || '').length
     };
   })()`;
@@ -129,7 +133,11 @@ function evaluate(wsUrl, expression) {
     ['KaTeX 公式渲染（依赖 katex）', snap.katex >= 2, snap.katex],
     ['mermaid 图表渲染（依赖 vendor 产物）', snap.mermaidSvg >= 1, snap.mermaidSvg],
     ['mermaid 无渲染错误', snap.mermaidErr === 0, snap.mermaidErr],
-    ['DOMPurify 已加载（依赖 vendor 产物）', snap.purified === true, snap.purified]
+    ['DOMPurify 已加载（依赖 vendor 产物）', snap.purified === true, snap.purified],
+    ['编辑区已渲染', snap.editor === true, snap.editor],
+    ['编辑 / 分栏 / 预览三档存在', snap.modeBtns === 3, snap.modeBtns],
+    ['保存按钮存在', snap.saveBtn === true, snap.saveBtn],
+    ['编辑模块已注入（MDVEdit）', snap.editApi === true, snap.editApi]
   ];
 
   let failed = 0;

@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, Menu, nativeTheme } = require('electron');
+const { app, BrowserWindow, Menu, dialog, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { safeResolveText } = require('./guard');
@@ -118,7 +118,46 @@ function createWindow(file) {
     if (!win.isDestroyed() && !win.isVisible()) win.show();
   }, 2500);
 
-  win.on('close', () => saveWindowState(win));
+  // 关窗保护：有未保存内容时先问，再决定保存/丢弃/取消
+  const closable = new WeakSet();
+  win.on('close', async (e) => {
+    if (closable.has(win)) { saveWindowState(win); return; }
+    e.preventDefault();
+
+    let dirty = 0;
+    try {
+      dirty = await win.webContents.executeJavaScript('(window.MDV && MDV.tabs) ? MDV.tabs.dirtyCount() : 0');
+    } catch { dirty = 0; }
+    if (win.isDestroyed()) return;
+
+    if (!dirty) {
+      closable.add(win);
+      saveWindowState(win);
+      win.close();
+      return;
+    }
+
+    const choice = dialog.showMessageBoxSync(win, {
+      type: 'warning',
+      buttons: ['保存并退出', '不保存退出', '取消'],
+      defaultId: 0,
+      cancelId: 2,
+      noLink: true,
+      message: `还有 ${dirty} 个文档没有保存`,
+      detail: '选择「保存并退出」会先写盘再关闭；「不保存退出」会丢弃这些修改。'
+    });
+    if (choice === 2) return;
+
+    if (choice === 0) {
+      let ok = false;
+      try { ok = await win.webContents.executeJavaScript('MDV.editor.saveAll()'); } catch { ok = false; }
+      if (!ok || win.isDestroyed()) return;
+    }
+
+    closable.add(win);
+    saveWindowState(win);
+    win.close();
+  });
   win.on('closed', () => {
     clearTimeout(showTimer);
     stopWatch(wcId);
@@ -151,6 +190,8 @@ function buildMenu() {
         { label: '打开文件…', accelerator: 'CmdOrCtrl+O', click: () => send('open') },
         { label: '打开文件夹…', accelerator: 'CmdOrCtrl+K', registerAccelerator: false, click: () => send('open-folder') },
         { type: 'separator' },
+        { label: '保存', accelerator: 'CmdOrCtrl+S', registerAccelerator: false, click: () => send('save') },
+        { type: 'separator' },
         { label: '在新窗口打开当前文件', click: () => send('new-window') },
         { label: '关闭当前标签', accelerator: 'CmdOrCtrl+W', registerAccelerator: false, click: () => send('close-tab') },
         { type: 'separator' },
@@ -164,10 +205,29 @@ function buildMenu() {
       ]
     },
     {
+      label: '编辑',
+      submenu: [
+        { label: '撤销', role: 'undo' },
+        { label: '重做', role: 'redo' },
+        { type: 'separator' },
+        { label: '剪切', role: 'cut' },
+        { label: '复制', role: 'copy' },
+        { label: '粘贴', role: 'paste' },
+        { label: '全选', role: 'selectAll' },
+        { type: 'separator' },
+        { label: '保存', accelerator: 'CmdOrCtrl+S', registerAccelerator: false, click: () => send('save') }
+      ]
+    },
+    {
       label: '视图',
       submenu: [
+        { label: '编辑模式', click: () => send('mode-edit') },
+        { label: '分栏模式', click: () => send('mode-split') },
+        { label: '预览模式', click: () => send('mode-preview') },
+        { type: 'separator' },
         { label: '查找…', accelerator: 'CmdOrCtrl+F', registerAccelerator: false, click: () => send('find') },
-        { label: '文件列表', accelerator: 'CmdOrCtrl+B', click: () => send('toggle-sidebar') },
+        // 编辑区里 Ctrl+B 是「加粗」，所以交给渲染进程按焦点判断
+        { label: '文件列表', accelerator: 'CmdOrCtrl+B', registerAccelerator: false, click: () => send('toggle-sidebar') },
         { label: '大纲', accelerator: 'CmdOrCtrl+Shift+O', click: () => send('toggle-outline') },
         { type: 'separator' },
         { label: '上一个标签', accelerator: 'Ctrl+Tab', registerAccelerator: false, click: () => send('next-tab') },

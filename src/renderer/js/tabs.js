@@ -31,6 +31,13 @@
       if (tab.missing) name.textContent = tab.name + ' ⚠';
       node.appendChild(name);
 
+      // 未保存标记：小圆点，保存后自动消失
+      if (tab.dirty) {
+        const dot = el('span', 'tab-dot');
+        dot.title = '有未保存的修改';
+        node.appendChild(dot);
+      }
+
       const x = el('button', 'tab-x');
       x.type = 'button';
       x.title = '关闭标签 (Ctrl+W)';
@@ -111,7 +118,8 @@
       scrollTop: 0,
       history: [{ path: res.path, anchor }],
       pos: 0,
-      missing: false
+      missing: false,
+      dirty: false
     };
     const current = activeTab();
     if (inPlace && current) {
@@ -155,7 +163,10 @@
     if (!tab) return;
 
     const prev = activeTab();
-    if (prev && prev !== tab) prev.scrollTop = MDV.view.currentScroll();
+    if (prev && prev !== tab) {
+      if (MDV.editor) MDV.editor.flushPreview();
+      prev.scrollTop = MDV.view.currentScroll();
+    }
 
     state.activeKey = tab.key;
     hideBanner();
@@ -166,6 +177,7 @@
       scrollTop: tab.scrollTop
     });
 
+    if (MDV.editor) MDV.editor.onActivate(tab);
     syncChrome();
   }
 
@@ -176,14 +188,22 @@
     activate(state.tabs[next].key);
   }
 
-  function closeTab(key) {
+  async function closeTab(key) {
     const i = state.tabs.findIndex((t) => t.key === key);
     if (i < 0) return;
-    const wasActive = state.tabs[i].key === state.activeKey;
+
+    const target = state.tabs[i];
+    if (target.dirty && MDV.editor) {
+      const ok = await MDV.editor.confirmClose(target);
+      if (!ok) return;
+    }
+
+    const wasActive = target.key === state.activeKey;
     state.tabs.splice(i, 1);
 
     if (!state.tabs.length) {
       state.activeKey = null;
+      if (MDV.editor) MDV.editor.onActivate(null);
       showWelcome();
       renderTabBar();
       MDV.sidebar && MDV.sidebar.onActiveChange(null);
@@ -214,6 +234,8 @@
     tab.mtime = res.mtime;
     tab.size = res.size;
     tab.missing = false;
+    tab.dirty = false;
+    if (MDV.editor) MDV.editor.onReload(tab);
     return true;
   }
 
@@ -249,6 +271,12 @@
       return;
     }
     if (Math.abs(ev.mtime - tab.mtime) < 1) return;
+
+    if (tab.dirty) {
+      // 编辑中：绝不静默覆盖用户正在写的内容
+      showBanner('磁盘上的文件已被其他程序修改；重新加载会丢弃你未保存的修改。', true);
+      return;
+    }
 
     const res = await window.mdv.readFile(tab.path);
     if (!res.ok) {
@@ -401,7 +429,8 @@
 
   MDV.tabs = {
     openPath, activate, closeTab, closeActive, cycle, reloadActive, restoreSession,
-    renderRecents, renderTabBar, showWelcome, rerender, goHistory,
-    active: activeTab, onFileChanged
+    renderRecents, renderTabBar, showWelcome, rerender, goHistory, renderText,
+    active: activeTab, onFileChanged,
+    dirtyCount: () => state.tabs.filter((t) => t.dirty).length
   };
 })();

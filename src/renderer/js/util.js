@@ -74,6 +74,58 @@
     toastTimer = setTimeout(() => { box.className = ''; }, 2600);
   };
 
+  /* ---------------- 确认对话框 ---------------- */
+  /**
+   * 可测试的页内确认框（比 window.confirm 可控，且跟随主题）。
+   * MDV.confirm({ title, message, buttons:[{label,value,primary,danger}] }) -> Promise<value|null>
+   */
+  MDV.confirm = (opts) => new Promise((resolve) => {
+    const o = Object.assign({
+      title: '提示',
+      message: '',
+      buttons: [{ label: '确定', value: true, primary: true }]
+    }, opts || {});
+
+    const dlg = document.createElement('dialog');
+    dlg.className = 'mdv-confirm';
+
+    const h = document.createElement('h3');
+    h.textContent = o.title;
+
+    const msg = document.createElement('p');
+    msg.className = 'mc-msg';
+    msg.textContent = o.message;
+
+    const row = document.createElement('div');
+    row.className = 'mc-actions';
+
+    let done = false;
+    const finish = (v) => {
+      if (done) return;
+      done = true;
+      try { dlg.close(); } catch { /* ignore */ }
+      dlg.remove();
+      resolve(v);
+    };
+
+    for (const b of o.buttons) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = b.label;
+      btn.className = b.danger ? 'mc-danger' : (b.primary ? 'mc-primary' : '');
+      btn.addEventListener('click', () => finish(b.value));
+      row.appendChild(btn);
+    }
+
+    dlg.append(h, msg, row);
+    dlg.addEventListener('cancel', (e) => { e.preventDefault(); finish(null); });
+    document.body.appendChild(dlg);
+    dlg.showModal();
+
+    const focus = row.querySelector('.mc-primary') || row.lastElementChild;
+    if (focus) focus.focus();
+  });
+
   MDV.formatBytes = (n) => {
     if (!n && n !== 0) return '';
     if (n < 1024) return n + ' B';
@@ -93,6 +145,7 @@
       mode: 'files'      // files | outline
     },
     find: { open: false, query: '', hits: [], index: -1 },
+    mode: MDV.loadJSON('mdv.mode', 'preview'),   // preview | split | edit
     zoom: MDV.loadJSON('mdv.zoom', 1),
     theme: MDV.loadJSON('mdv.theme', 'dark'),
     prefs: Object.assign({

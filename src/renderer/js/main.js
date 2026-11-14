@@ -91,6 +91,10 @@
     'zoom-in': () => zoom('in'),
     'zoom-out': () => zoom('out'),
     'zoom-reset': () => zoom('reset'),
+    'save': () => MDV.editor && MDV.editor.saveActive(),
+    'mode-edit': () => MDV.editor && MDV.editor.applyMode('edit'),
+    'mode-split': () => MDV.editor && MDV.editor.applyMode('split'),
+    'mode-preview': () => MDV.editor && MDV.editor.applyMode('preview'),
     'settings': () => MDV.settings.openPanel(),
     'toggle-theme': () => MDV.settings.toggleTheme(),
     'keys': () => MDV.settings.showKeys(),
@@ -119,7 +123,18 @@
     }
     if (ctrl && e.key.toLowerCase() === 's') {
       e.preventDefault();
-      MDV.toast('这是只读查看器，不会修改文件；需要导出请用 文件 → 导出 PDF');
+      if (MDV.editor) MDV.editor.saveActive();
+      return;
+    }
+    if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'e') {
+      e.preventDefault();
+      if (MDV.editor) MDV.editor.cycleMode();
+      return;
+    }
+    // 侧栏的 Ctrl+B 交给渲染进程判断：编辑区里应该是「加粗」
+    if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'b') {
+      e.preventDefault();
+      MDV.sidebar.toggle('files');
       return;
     }
   });

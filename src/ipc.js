@@ -206,6 +206,50 @@ function registerIpc(app, createWindow) {
     return true;
   });
 
+  /* ---------------- 保存 ---------------- */
+  /**
+   * 原子保存：先写同目录临时文件再 rename，避免写一半断电把原文件弄坏。
+   * 保留原文件的 BOM 与换行风格，否则 git 上会出现"整篇都改了"的假差异。
+   * expectedMtime 用于冲突检测；传 null 表示强制覆盖。
+   */
+  ipcMain.handle('mdv:save-file', async (_e, filePath, text, expectedMtime) => {
+    const canon = safeResolveText(filePath);
+    if (!canon) return { ok: false, code: 'invalid', message: '只能保存到已打开的本地 Markdown 文件' };
+    if (typeof text !== 'string') return { ok: false, code: 'invalid', message: '内容无效' };
+
+    let tmp = null;
+    try {
+      const st = await fsp.stat(canon);
+      if (!st.isFile()) return { ok: false, code: 'io', message: '目标不是文件' };
+
+      if (typeof expectedMtime === 'number' && expectedMtime > 0 && Math.abs(st.mtimeMs - expectedMtime) > 1) {
+        return { ok: false, code: 'conflict', mtime: st.mtimeMs, message: '文件已被其他程序修改' };
+      }
+
+      const old = await fsp.readFile(canon);
+      const hasBOM = old.length >= 3 && old[0] === 0xEF && old[1] === 0xBB && old[2] === 0xBF;
+      const head = old.subarray(0, Math.min(old.length, 8192)).toString('utf8');
+      const crlf = head.includes('\r\n');
+
+      let body = text;
+      if (body.charCodeAt(0) === 0xFEFF) body = body.slice(1);
+      body = body.replace(/\r\n/g, '\n');
+      if (crlf) body = body.replace(/\n/g, '\r\n');
+
+      const data = Buffer.from((hasBOM ? '\uFEFF' : '') + body, 'utf8');
+      tmp = canon + '.mdv-save-' + process.pid + '-' + Date.now();
+      await fsp.writeFile(tmp, data);
+      await fsp.rename(tmp, canon);
+      tmp = null;
+
+      const after = await fsp.stat(canon);
+      return { ok: true, path: canon, mtime: after.mtimeMs, size: after.size, crlf, bom: hasBOM };
+    } catch (err) {
+      if (tmp) { try { await fsp.unlink(tmp); } catch { /* ignore */ } }
+      return { ok: false, code: 'io', message: String((err && err.code) || (err && err.message) || err) };
+    }
+  });
+
   /* ---------------- 导出 / 打印 ---------------- */
   ipcMain.handle('mdv:export-pdf', async (e, suggestedName) => {
     const win = winOf(e);
